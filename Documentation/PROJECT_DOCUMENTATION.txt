@@ -1,0 +1,479 @@
+========================================
+E-COMMERCE MANAGEMENT SYSTEM
+PROJECT DOCUMENTATION
+========================================
+
+========================================
+1. EXECUTIVE SUMMARY
+========================================
+
+Project Title: E-commerce Management System
+Created By: [Your Name]
+Date: [Date]
+Semester: 4th Semester
+Subject: Database Management System (DBMS)
+
+Overview:
+The E-commerce Management System is a comprehensive relational database designed to handle all operations of an online retail platform. It manages customers, products, orders, payments, and reviews with a normalized schema up to 3NF. The system includes advanced features like triggers for automation and stored procedures for complex business logic.
+
+========================================
+2. PROJECT OBJECTIVES
+========================================
+
+1. Design a normalized relational database for e-commerce operations
+2. Implement ACID properties through transactions
+3. Create efficient SQL queries for business intelligence
+4. Automate processes using triggers and stored procedures
+5. Ensure data integrity through constraints and validations
+6. Provide scalable solution for future growth
+
+========================================
+3. DATABASE DESIGN
+========================================
+
+3.1 ENTITIES AND ATTRIBUTES
+
+TABLE 1: Users (Customers)
+- user_id (PK) - Primary Key
+- first_name - Customer first name
+- last_name - Customer last name
+- email (UNIQUE) - Unique email address
+- phone_number - Contact number
+- password_hash - Hashed password
+- address - Delivery address
+- city, state, postal_code, country
+- created_date - Account creation timestamp
+- last_login - Last login datetime
+- is_active - Account status
+
+TABLE 2: Categories
+- category_id (PK) - Primary Key
+- category_name (UNIQUE) - Product category name
+- description - Category description
+- created_date - When category was added
+
+TABLE 3: Products
+- product_id (PK) - Primary Key
+- product_name - Product name
+- description - Product description
+- price - Product price (CHECK >= 0)
+- category_id (FK) - References Categories
+- stock_quantity - Available stock (CHECK >= 0)
+- sku (UNIQUE) - Stock Keeping Unit
+- manufacturer - Product manufacturer
+- created_date - Product added date
+- updated_date - Last update timestamp
+- is_available - Availability status
+
+TABLE 4: Cart
+- cart_id (PK) - Primary Key
+- user_id (FK) - References Users
+- product_id (FK) - References Products
+- quantity - Items in cart (CHECK > 0)
+- added_date - When item was added
+- UNIQUE(user_id, product_id) - One entry per product per user
+
+TABLE 5: Orders
+- order_id (PK) - Primary Key
+- user_id (FK) - References Users
+- order_date - Timestamp of order
+- total_amount - Total order value
+- order_status - ENUM(Pending, Confirmed, Shipped, Delivered, Cancelled)
+- delivery_address - Delivery address
+- delivery_city, delivery_state, delivery_postal_code
+- estimated_delivery_date
+- actual_delivery_date
+
+TABLE 6: OrderItems
+- order_item_id (PK) - Primary Key
+- order_id (FK) - References Orders
+- product_id (FK) - References Products
+- quantity - Items in this order
+- price_at_purchase - Price at time of order
+
+TABLE 7: Payments
+- payment_id (PK) - Primary Key
+- order_id (FK, UNIQUE) - References Orders
+- amount - Payment amount
+- payment_method - ENUM(Credit Card, Debit Card, UPI, etc.)
+- payment_status - ENUM(Pending, Completed, Failed, Refunded)
+- transaction_id - Unique transaction ID
+- payment_date - When payment was made
+- refund_date - When refund was processed
+- refund_amount - Amount refunded
+
+TABLE 8: Reviews
+- review_id (PK) - Primary Key
+- product_id (FK) - References Products
+- user_id (FK) - References Users
+- rating - 1-5 star rating (CHECK 1-5)
+- comment - Review text
+- review_date - When review was posted
+- helpful_count - Number of helpful votes
+- UNIQUE(user_id, product_id) - One review per user per product
+
+3.2 ER DIAGRAM
+
+[Text representation of relationships]
+
+Users (1) ──→ (Many) Orders
+Users (1) ──→ (Many) Cart
+Users (1) ──→ (Many) Reviews
+
+Categories (1) ──→ (Many) Products
+
+Products (1) ──→ (Many) Cart
+Products (1) ──→ (Many) OrderItems
+Products (1) ──→ (Many) Reviews
+
+Orders (1) ──→ (Many) OrderItems
+Orders (1) ──→ (1) Payments
+
+========================================
+4. NORMALIZATION
+========================================
+
+4.1 FIRST NORMAL FORM (1NF)
+- All attributes contain atomic values only
+- No repeating groups
+- Example: Product details not repeated in Orders
+
+Before: Orders table had all product names as comma-separated values
+After: Created OrderItems table with separate rows for each product
+
+4.2 SECOND NORMAL FORM (2NF)
+- Meets 1NF
+- No partial dependencies
+- All non-key attributes depend on ENTIRE primary key
+
+Example in OrderItems:
+- Primary Key: (order_id, product_id)
+- price_at_purchase depends on both order_id AND product_id
+- Cannot extract just order_id
+
+4.3 THIRD NORMAL FORM (3NF)
+- Meets 2NF
+- No transitive dependencies
+- Non-key attributes do not depend on other non-key attributes
+
+Example:
+NOT 3NF: Products table has (product_id, product_name, category_id, category_name)
+Problem: category_name depends on category_id, not product_id
+
+3NF: Products table has (product_id, product_name, category_id)
+Categories table has (category_id, category_name)
+Solution: Look up category_name via JOIN
+
+========================================
+5. KEY CONSTRAINTS
+========================================
+
+5.1 PRIMARY KEY CONSTRAINTS
+- Uniquely identifies each record
+- Every table has exactly one PK
+- Auto-increment for ID generation
+- Cannot be NULL
+
+5.2 FOREIGN KEY CONSTRAINTS
+- References primary key in another table
+- Maintains referential integrity
+- User_id in Orders must exist in Users
+- ON DELETE CASCADE: Delete dependent records
+- ON DELETE RESTRICT: Prevent deletion of parent
+
+5.3 UNIQUE CONSTRAINTS
+- Ensures no duplicate values
+- email in Users (no two accounts with same email)
+- sku in Products (product codes unique)
+
+5.4 NOT NULL CONSTRAINTS
+- Critical fields must have values
+- product_name, email, price cannot be NULL
+
+5.5 CHECK CONSTRAINTS
+- Validate data before insertion
+- price >= 0: No negative prices
+- stock_quantity >= 0: Stock cannot be negative
+- rating BETWEEN 1 AND 5: Ratings only 1-5
+
+========================================
+6. INDEXES FOR OPTIMIZATION
+========================================
+
+Purpose: Speed up queries by pre-sorting data
+
+Indexes Created:
+- idx_user_email ON Users(email)
+- idx_product_category ON Products(category_id)
+- idx_product_sku ON Products(sku)
+- idx_order_user ON Orders(user_id)
+- idx_order_date ON Orders(order_date)
+- idx_orderitem_order ON OrderItems(order_id)
+- idx_review_product ON Reviews(product_id)
+
+Benefits:
+- Faster WHERE clause filtering
+- Faster JOIN operations
+- Faster GROUP BY operations
+- Trade-off: Slower INSERT/UPDATE operations (indexes must be updated)
+
+========================================
+7. QUERIES
+========================================
+
+[Sample queries provided in separate file: ecommerce_queries.sql]
+
+Total Queries: 25
+- Easy: 10 (Basic SELECT, simple WHERE, simple JOINs)
+- Medium: 10 (Complex JOINs, GROUP BY, aggregations)
+- Hard: 5 (Subqueries, window functions, advanced analytics)
+
+Key Query Categories:
+1. Product Management
+2. Order Processing
+3. Customer Analysis
+4. Revenue Reporting
+5. Inventory Management
+6. Payment Analysis
+
+========================================
+8. TRIGGERS & AUTOMATION
+========================================
+
+Trigger 1: UpdateProductStockOnOrderItem
+- When: After INSERT on OrderItems
+- Action: Decrease product stock_quantity
+- Purpose: Automate inventory update
+
+Trigger 2: UpdateOrderTotalOnItemAdd
+- When: After INSERT on OrderItems
+- Action: Update order total_amount
+- Purpose: Automatically calculate order total
+
+Trigger 3: PreventNegativeStock
+- When: Before UPDATE on Products
+- Action: SIGNAL error if stock < 0
+- Purpose: Validate data integrity
+
+Trigger 4: ClearCartAfterOrder
+- When: After INSERT on Orders
+- Action: DELETE all cart items for user
+- Purpose: Auto-clear cart after checkout
+
+Trigger 5: UpdateOrderStatusOnPayment
+- When: After UPDATE on Payments
+- Action: Update order status to Confirmed
+- Purpose: Sync order status with payment
+
+Trigger 6: UpdateProductAvailability
+- When: After UPDATE on Products
+- Action: Set is_available based on stock
+- Purpose: Auto-mark product as available/unavailable
+
+========================================
+9. STORED PROCEDURES
+========================================
+
+Procedure 1: PlaceOrder
+- Input: user_id, delivery details
+- Actions:
+  * Calculate cart total
+  * Create order record
+  * Move cart items to order items
+  * Clear cart
+  * Handle errors with transaction
+- Output: Order confirmation message
+
+Procedure 2: ProcessPayment
+- Input: order_id, payment_method
+- Actions:
+  * Retrieve order amount
+  * Create payment record
+  * Set payment status to Completed
+- Output: Payment success message
+
+Procedure 3: GetCustomerOrderHistory
+- Input: user_id
+- Output: All orders with items and totals
+
+Procedure 4: GetProductDetails
+- Input: product_id
+- Output: Product info with reviews and ratings
+
+Procedure 5: AddToCart
+- Input: user_id, product_id, quantity
+- Actions: Validate stock, add/update cart
+- Output: Success message or error
+
+Procedure 6: GetSalesReport
+- Input: None
+- Output: Monthly sales metrics
+
+Procedure 7: CancelOrder
+- Input: order_id
+- Actions: Cancel order, restore stock
+
+Benefits:
+- Encapsulate complex logic
+- Reusable across applications
+- Better performance (pre-compiled)
+- SQL injection prevention (parameterized)
+
+========================================
+10. TRANSACTION HANDLING
+========================================
+
+Transaction Example: PlaceOrder
+
+START TRANSACTION;
+  1. Check if cart has items
+  2. Calculate total amount
+  3. INSERT into Orders table
+  4. INSERT into OrderItems table (from Cart)
+  5. DELETE from Cart table
+  IF ERROR THEN
+    ROLLBACK - All changes undone
+  ELSE
+    COMMIT - All changes saved
+  END IF;
+
+ACID Properties Ensured:
+- Atomicity: All or nothing
+- Consistency: Valid state maintained
+- Isolation: Concurrent transactions independent
+- Durability: Committed data persists
+
+========================================
+11. SAMPLE DATA
+========================================
+
+Data Population:
+- 5 users created
+- 6 categories defined
+- 18 products added
+- 5 orders placed
+- 7 order items created
+- 5 payment records
+- 9 reviews submitted
+
+Data is sufficient for demonstrating:
+- All query types
+- Trigger functionality
+- Procedure execution
+- Business logic
+
+========================================
+12. TESTING & VALIDATION
+========================================
+
+Test Cases Performed:
+
+1. Data Insertion Tests
+   ✓ Valid data inserted successfully
+   ✓ Constraints enforced correctly
+   ✓ Foreign keys validated
+
+2. Query Tests
+   ✓ Simple queries return correct results
+   ✓ Complex queries aggregate properly
+   ✓ JOINs produce expected output
+
+3. Trigger Tests
+   ✓ Stock decreases when order placed
+   ✓ Cart clears after order
+   ✓ Negative stock prevented
+   ✓ Order status updated with payment
+
+4. Procedure Tests
+   ✓ PlaceOrder creates complete order
+   ✓ ProcessPayment handles transactions
+   ✓ AddToCart validates stock
+
+5. Constraint Tests
+   ✓ NULL constraints enforced
+   ✓ UNIQUE constraints work
+   ✓ CHECK constraints validate
+   ✓ Foreign key relationships maintained
+
+========================================
+13. STRENGTHS OF THIS DESIGN
+========================================
+
+1. Normalized Schema
+   - No data redundancy
+   - Consistent data
+   - Easy to maintain
+
+2. Data Integrity
+   - Constraints enforce rules
+   - Referential integrity via FK
+   - Transactions ensure consistency
+
+3. Performance
+   - Indexes for fast queries
+   - Optimized query structure
+   - Efficient JOINs
+
+4. Scalability
+   - Can handle growing data
+   - Indexes prevent slowdowns
+   - Partitioning possible
+
+5. Security
+   - Parameterized queries prevent SQL injection
+   - Constraints validate data
+   - Proper access control possible
+
+6. Business Value
+   - Supports complex queries
+   - Enables analytics
+   - Automates operations
+
+========================================
+14. POSSIBLE EXTENSIONS
+========================================
+
+Future Enhancements:
+1. Inventory Management - Track warehouse stocks
+2. Sellers/Vendors - Multi-vendor marketplace
+3. Wishlist - Save favorite products
+4. Coupons - Discount codes
+5. Returns - Return/refund process
+6. Shipping - Track shipments
+7. Analytics - Advanced reporting
+8. Customer Support - Tickets and complaints
+
+========================================
+15. CONCLUSION
+========================================
+
+This E-commerce Management System demonstrates:
+- Proper database design and normalization
+- Implementation of constraints and integrity
+- Complex SQL queries for business intelligence
+- Automation through triggers and procedures
+- Transaction handling and ACID properties
+- Performance optimization through indexing
+- Security best practices
+
+The system is production-ready for small to medium e-commerce operations and can be scaled for larger deployments.
+
+========================================
+16. FILES PROVIDED
+========================================
+
+1. ecommerce_schema.sql - Database schema creation
+2. ecommerce_sample_data.sql - Test data
+3. ecommerce_queries.sql - All SQL queries
+4. ecommerce_advanced.sql - Triggers and procedures
+5. PROJECT_DOCUMENTATION.txt - This document
+6. VIVA_PREPARATION.txt - Viva questions and answers
+
+========================================
+END OF DOCUMENTATION
+========================================
+
+Submitted By: [Your Name]
+Submitted Date: [Date]
+Department: Computer Science & Engineering
+Semester: 4
